@@ -1,0 +1,41 @@
+.footer {
+	margin-top: 20px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	font-family: var(--font-mono);
+	font-size: 13px;
+}
+
+.registerLink {
+	color: var(--color-dark);
+	text-decoration: underline;
+	transition: var(--transition-fast);
+}
+
+.registerLink:hover {
+	color: var(--color-accent);
+}
+
+.forgotLink {
+	color: var(--color-gray);
+	font-size: 12px;
+	text-decoration: none;
+	transition: var(--transition-fast);
+}
+
+.forgotLink:hover {
+	color: var(--color-accent);
+	text-decoration: underline;
+}
+
+.resetSuccess {
+	background: #e8f5e9;
+	color: #2e7d32;
+	border: 2px solid #4caf50;
+	padding: 10px 14px;
+	margin-bottom: 16px;
+	font-family: var(--font-mono);
+	font-size: 13px;
+	text-align: center;
+}

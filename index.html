@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="uk">
+	<head>
+		<meta charset="UTF-8" />
+		<link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta
+			http-equiv="Content-Security-Policy"
+			content="
+				default-src 'self';
+				script-src 'self' https://*.github.io;
+				style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+				style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;
+				font-src 'self' https://fonts.gstatic.com;
+				img-src 'self' data: https://vscrm.github.io https://*.github.io https://images.unsplash.com https://*.unsplash.com;
+				connect-src 'self' http://localhost:3001 ws://localhost:5173 ws://localhost:4173 https://api.emailjs.com https://*.github.io;
+				object-src 'none';
+				base-uri 'self';
+				form-action 'self';
+			" />
+		<meta http-equiv="X-Content-Type-Options" content="nosniff" />
+		<meta
+			http-equiv="Referrer-Policy"
+			content="strict-origin-when-cross-origin" />
+		<meta
+			http-equiv="Permissions-Policy"
+			content="camera=(), microphone=(), geolocation=()" />
+		<title>Bugle Planet</title>
+		<script type="text/javascript" src="./spa-redirect.js"></script>
+	</head>
+	<body>
+		<div id="root"></div>
+		<script type="module" src="/src/main.jsx"></script>
+	</body>
+</html>
