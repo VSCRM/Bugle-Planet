@@ -16,11 +16,15 @@ import { listenForSessionSync } from '../security/sessionGuard';
  * logging in or out in one tab is reflected immediately in all other open tabs.
  */
 export function AuthProvider({ children }) {
-	const [user, setUser] = useState(readLocalUser);
+	const [user, setUser] = useState(() => {
+		const initial = readLocalUser();
+		return initial;
+	});
 	const [loading, setLoading] = useState(false);
-	const [savedArticles, setSavedArticles] = useState(() =>
-		readSavedArticles(readLocalUser()?.username),
-	);
+	const [savedArticles, setSavedArticles] = useState(() => {
+		const initial = readLocalUser();
+		return readSavedArticles(initial?.username);
+	});
 
 	// Keep savedArticles in sync whenever the user or their storage changes.
 	useAuthSync(user, savedArticles, setSavedArticles);

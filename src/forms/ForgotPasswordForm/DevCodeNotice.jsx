@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Copy, Check } from 'lucide-react';
 import styles from './ForgotPasswordForm.module.css';
 
@@ -9,11 +9,27 @@ import styles from './ForgotPasswordForm.module.css';
  */
 export const DevCodeNotice = ({ code }) => {
 	const [copied, setCopied] = useState(false);
+	const timerRef = useRef(null);
 
-	const handleCopy = () => {
-		navigator.clipboard.writeText(code);
-		setCopied(true);
-		setTimeout(() => setCopied(false), 2000);
+	// Clear the timer if the component unmounts before it fires.
+	useEffect(() => {
+		return () => {
+			if (timerRef.current) clearTimeout(timerRef.current);
+		};
+	}, []);
+
+	const handleCopy = async () => {
+		try {
+			await navigator.clipboard.writeText(code);
+			setCopied(true);
+			if (timerRef.current) clearTimeout(timerRef.current);
+			timerRef.current = setTimeout(() => {
+				setCopied(false);
+				timerRef.current = null;
+			}, 2000);
+		} catch {
+			// Clipboard API not available (e.g. non-HTTPS in dev)
+		}
 	};
 
 	return (

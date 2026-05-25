@@ -7,10 +7,10 @@ import { ArticleMeta } from './ArticleMeta';
 import styles from './NewsDetailPage.module.css';
 
 export function NewsDetailPage() {
-	const { article, loading, isSaved, handleSave } = useNewsDetail();
+	const { article, loading, error, isSaved, handleSave } = useNewsDetail();
 
 	if (loading) return <DetailLoading />;
-	if (!article) return <DetailNotFound />;
+	if (error || !article) return <DetailNotFound />;
 
 	return (
 		<ArticleLayout>

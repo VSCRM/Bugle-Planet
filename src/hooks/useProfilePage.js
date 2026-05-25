@@ -1,18 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from './useAuth';
 
-/**
- * Encapsulates all logic for the ProfilePage:
- * logout, editing mode toggling, and saving profile changes.
- */
 export function useProfilePage() {
 	const { user, logout, updateUser, loading, savedArticles, unsaveArticle } = useAuth();
 	const navigate = useNavigate();
 	const [editing, setEditing] = useState(false);
+	const [saveError, setSaveError] = useState('');
 
-	/** Tracks which fields were saved so the correct Toast message is shown. */
 	const [savedType, setSavedType] = useState(null);
+	const toastTimerRef = useRef(null);
+
+	useEffect(() => {
+		return () => {
+			if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+		};
+	}, []);
 
 	/** Log the user out and redirect to the home page. */
 	const handleLogout = () => {
@@ -22,7 +25,13 @@ export function useProfilePage() {
 
 	/** Persist profile changes and show a success toast for 3.5 s. */
 	const handleSave = async (payload) => {
-		await updateUser(payload);
+		setSaveError('');
+		try {
+			await updateUser(payload);
+		} catch (err) {
+			setSaveError(err?.message ?? 'Не вдалося зберегти зміни.');
+			return;
+		}
 
 		// Determine which combination of fields was updated.
 		if (payload.nickname && payload.password) setSavedType('both');
@@ -30,7 +39,13 @@ export function useProfilePage() {
 		else setSavedType('password');
 
 		setEditing(false);
-		setTimeout(() => setSavedType(null), 3500);
+
+		// Cancel any previous timer before starting a new one.
+		if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+		toastTimerRef.current = setTimeout(() => {
+			setSavedType(null);
+			toastTimerRef.current = null;
+		}, 3500);
 	};
 
 	const toggleEditing = () => setEditing((previous) => !previous);
@@ -43,6 +58,7 @@ export function useProfilePage() {
 		unsaveArticle,
 		editing,
 		savedType,
+		saveError,
 		handleLogout,
 		handleSave,
 		toggleEditing,

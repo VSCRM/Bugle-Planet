@@ -10,21 +10,36 @@ export function useNewsDetail() {
 
 	const [article, setArticle] = useState(null);
 	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
 
 	const [prevId, setPrevId] = useState(id);
 	if (id !== prevId) {
 		setPrevId(id);
+		setArticle(null);
 		setLoading(true);
+		setError(null);
 	}
 
 	useEffect(() => {
 		let cancelled = false;
 
 		newsService.getById(id)
-			.then((data) => { if (!cancelled) setArticle(data); })
-			.finally(() => { if (!cancelled) setLoading(false); });
+			.then((data) => {
+				if (!cancelled) {
+					setArticle(data);
+					setLoading(false);
+				}
+			})
+			.catch((err) => {
+				if (!cancelled) {
+					setError(err.message ?? 'Помилка завантаження');
+					setLoading(false);
+				}
+			});
 
-		return () => { cancelled = true; };
+		return () => {
+			cancelled = true;
+		};
 	}, [id]);
 
 	const isSaved = savedArticles.some((a) => a.id === article?.id);
@@ -43,6 +58,6 @@ export function useNewsDetail() {
 	};
 
 	return {
-		article, loading, isSaved, handleSave
+		article, loading, error, isSaved, handleSave
 	};
-};
+}

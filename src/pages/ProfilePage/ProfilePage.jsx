@@ -21,6 +21,7 @@ export const ProfilePage = () => {
 		unsaveArticle,
 		editing,
 		savedType,
+		saveError,
 		handleLogout,
 		handleSave,
 		toggleEditing,
@@ -32,6 +33,9 @@ export const ProfilePage = () => {
 			{/* Toast is rendered at page level so it survives EditProfileForm unmount. */}
 			{savedType && (
 				<Toast message={SAVE_MESSAGES[savedType]} onClose={() => { }} />
+			)}
+			{saveError && (
+				<Toast message={saveError} onClose={() => { }} />
 			)}
 
 			<div className={styles.card}>

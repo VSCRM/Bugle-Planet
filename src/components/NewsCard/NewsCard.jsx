@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router';
+import { Link } from 'react-router';
 import { useSaveArticle } from '../../hooks/useSaveArticle';
 import { CardImage } from './CardImage';
 import { CardMeta } from './CardMeta';
@@ -12,31 +12,22 @@ import styles from './NewsCard.module.css';
  */
 export function NewsCard({ article, featured = false }) {
 	const { isSaved, handleSave } = useSaveArticle(article);
-	const navigate = useNavigate();
 
 	const cardClass = featured ? styles.cardFeatured : styles.card;
 	const titleSize = featured ? '32px' : '20px';
 
-	const handleCardClick = () => navigate(`/news/${article.id}`);
-
-	// Allow keyboard users to activate the card with Enter or Space.
-	const handleKeyDown = (event) => {
-		if (event.key === 'Enter' || event.key === ' ') handleCardClick();
-	};
-
 	return (
-		<article
-			className={`${cardClass} ${styles.clickable}`}
-			onClick={handleCardClick}
-			onKeyDown={handleKeyDown}
-			role="button"
-			tabIndex={0}
-			aria-label={`Читати: ${article.title}`}
-		>
-			<CardImage src={article.image} alt={article.title} />
-			<CardMeta category={article.category} date={article.date} />
-			<CardTitle title={article.title} size={titleSize} />
-			<p className={styles.excerpt}>{article.excerpt}</p>
+		<article className={cardClass}>
+			<Link
+				to={`/news/${article.id}`}
+				className={styles.cardLink}
+				aria-label={`Читати: ${article.title}`}
+			>
+				<CardImage src={article.image} alt={article.title} />
+				<CardMeta category={article.category} date={article.date} />
+				<CardTitle title={article.title} size={titleSize} />
+				<p className={styles.excerpt}>{article.excerpt}</p>
+			</Link>
 			<CardActions isSaved={isSaved} onSave={handleSave} />
 		</article>
 	);
