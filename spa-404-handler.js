@@ -9,28 +9,25 @@
  * @see https://github.com/rafgraph/spa-github-pages
  */
 
-export {};
-
 const SEGMENT_COUNT = 1;
-
-const l: Location = window.location;
+const l = window.location;
 
 l.replace(
 	l.protocol +
-		"//" +
-		l.hostname +
-		(l.port ? ":" + l.port : "") +
-		l.pathname
-			.split("/")
-			.slice(0, 1 + SEGMENT_COUNT)
-			.join("/") +
-		"/?/" +
-		l.pathname
-			.slice(1)
-			.split("/")
-			.slice(SEGMENT_COUNT)
-			.join("/")
-			.replace(/&/g, "~and~") +
-		(l.search ? "&" + l.search.slice(1).replace(/&/g, "~and~") : "") +
-		l.hash,
+	"//" +
+	l.hostname +
+	(l.port ? ":" + l.port : "") +
+	l.pathname
+		.split("/")
+		.slice(0, 1 + SEGMENT_COUNT)
+		.join("/") +
+	"/?/" +
+	l.pathname
+		.slice(1)
+		.split("/")
+		.slice(SEGMENT_COUNT)
+		.join("/")
+		.replace(/&/g, "~and~") +
+	(l.search ? "&" + l.search.slice(1).replace(/&/g, "~and~") : "") +
+	l.hash,
 );
