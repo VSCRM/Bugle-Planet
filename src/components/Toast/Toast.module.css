@@ -40,6 +40,15 @@
 	opacity: 1;
 }
 
+.toastError {
+	border-color: var(--color-error);
+	box-shadow: 6px 6px 0 var(--color-error);
+}
+
+.toastError .icon {
+	color: var(--color-error);
+}
+
 @keyframes slideIn {
 	from {
 		opacity: 0;

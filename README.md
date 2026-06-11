@@ -1,437 +1,734 @@
-# Bugle Planet
+# Bugle Planet — Production TypeScript Edition
 
-<div align="center">
+A production-ready, fully bilingual (🇺🇦 UA / 🇬🇧 EN) local news portal for
+Kalush, Ivano-Frankivsk region. Built in **strict TypeScript** with Zod runtime
+validation, a custom i18n system, React 19 features, security hardening,
+code-split bundle, and full test coverage.
 
-**A React news-reader with authentication, article saving, and a full password-reset flow.**
-Runs entirely in the browser using mock data — no backend required.
-
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-%E2%86%92%20GitHub%20Pages-1a1a1a?style=for-the-badge)](https://vscrm.github.io/Bugle-Planet/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-555?style=for-the-badge)](./LICENSE)
-[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=white)](https://react.dev)
-[![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
-
-🌐 **[vscrm.github.io/Bugle-Planet](https://vscrm.github.io/Bugle-Planet/)**
-
-</div>
+**Live demo:** [vscrm.github.io/Bugle-Planet](https://vscrm.github.io/Bugle-Planet/)
 
 ---
 
-## Table of contents
+## Table of Contents
 
-- [Features](#features)
-- [Tech stack](#tech-stack)
-- [Project structure](#project-structure)
-- [Getting started](#getting-started)
-- [Environment variables](#environment-variables)
-- [Password-reset emails (EmailJS)](#password-reset-emails-emailjs)
-- [Switching to a real backend](#switching-to-a-real-backend)
-- [Google OAuth (ready for backend)](#google-oauth-ready-for-backend)
-- [Running tests](#running-tests)
-- [Available scripts](#available-scripts)
-- [License](#license)
-
----
-
-## Features
-
-| Area                  | Details                                                                                                   |
-| --------------------- | --------------------------------------------------------------------------------------------------------- |
-| **Authentication**    | Register / login with email + password; HMAC-signed session key; rate limiter (5 attempts → 15 min block) |
-| **Password reset**    | Forgot-password → 6-digit code via **EmailJS** → reset form with live strength indicator                  |
-| **Profile editing**   | Change nickname and/or password; contextual toast per what was changed                                    |
-| **Password strength** | Real-time requirement checklist + Weak / Medium / Strong bar                                              |
-| **Article saving**    | Save / unsave articles; pending save survives login redirect; synced to API in real mode                  |
-| **Google OAuth**      | `GoogleLoginButton` styled and ready — wire up `onLogin` when backend exists                              |
-| **Mock ↔ API**        | `VITE_USE_MOCK` flag toggles between localStorage mock and real axios calls                               |
-| **Security**          | Content Security Policy headers, XSS sanitisation, cross-tab session sync via BroadcastChannel            |
+1. [Pages & Routes](#pages--routes)
+2. [Tech Stack](#tech-stack)
+3. [Quick Start](#quick-start)
+4. [Environment Variables](#environment-variables)
+5. [Test Suite](#test-suite)
+6. [Architecture](#architecture)
+7. [i18n — UA / EN](#i18n--ua--en)
+8. [Bilingual News Data](#bilingual-news-data)
+9. [Zod Runtime Validation](#zod-runtime-validation)
+10. [Security](#security)
+11. [Performance & Optimisation](#performance--optimisation)
+12. [CSS Architecture](#css-architecture)
+13. [Project File Tree](#project-file-tree)
+14. [Deployment — GitHub Pages](#deployment--github-pages)
 
 ---
 
-## Tech stack
+## Pages & Routes
 
-| Layer            | Library / Tool                                             |
-| ---------------- | ---------------------------------------------------------- |
-| UI framework     | React 19, React Router 7                                   |
-| Build tool       | Vite 8                                                     |
-| HTTP client      | Axios                                                      |
-| Styling          | CSS Modules                                                |
-| Icons            | Lucide React                                               |
-| Password hashing | `crypto-js` (SHA-256 pre-hash) + `bcryptjs` (mock storage) |
-| Email delivery   | `@emailjs/browser`                                         |
-| Tests            | Vitest + Testing Library                                   |
-| Deploy           | `gh-pages` → GitHub Pages                                  |
+| Page            | Route              | Auth | Description                                               |
+| --------------- | ------------------ | :--: | --------------------------------------------------------- |
+| Home            | `/`                |  —   | Article grid · search · category filter · sort            |
+| Search          | `/search`          |  —   | Full-text + date filter with live `useTransition`         |
+| Article detail  | `/news/:id`        |  —   | Full article · optimistic save · unauthenticated redirect |
+| Login           | `/login`           |  —   | Email + password sign-in · auto-saves pending article     |
+| Register        | `/register`        |  —   | Account creation · real-time strength meter               |
+| Forgot password | `/forgot-password` |  —   | Requests a 6-digit reset code by email                    |
+| Reset password  | `/reset-password`  |  —   | Enter code + set new password                             |
+| Profile         | `/profile`         |  ✅  | Saved articles · edit profile · sign out                  |
+
+> **Navigation bar shows: Home · Search · Profile.**
+> Login and Register are reachable via form footer links only — never shown in the nav bar.
 
 ---
 
-## Project structure
+## Tech Stack
+
+| Library / Tool         | Version | Role                                                       |
+| ---------------------- | ------- | ---------------------------------------------------------- |
+| React                  | **19**  | UI — `useOptimistic`, `useTransition`, `StrictMode`        |
+| TypeScript             | **6**   | Static typing (`strict: true`, `noUncheckedIndexedAccess`) |
+| Vite                   | **8**   | Build tool + dev server with HMR                           |
+| React Router           | **7**   | Client-side routing with `basename`                        |
+| Zod                    | **3**   | Runtime validation + `z.infer` type derivation             |
+| bcrypt-ts              | latest  | Client-side bcrypt (no `eval` in application code)         |
+| Axios                  | 1       | HTTP client with CSRF interceptor + timeout                |
+| Lucide React           | latest  | Icon set (tree-shaken per icon)                            |
+| Vitest                 | 4       | Test runner (Vite-native)                                  |
+| @testing-library/react | 16      | Component testing                                          |
+
+---
+
+## Quick Start
+
+```bash
+npm install            # install all dependencies
+npm run dev            # → http://localhost:5173
+npm run build          # production build → dist/
+npm run preview        # preview at http://localhost:4173/Bugle-Planet/
+npm run lint           # ESLint check
+npm test               # run all tests once (CI mode)
+npm run test:watch     # watch mode for development
+npm run test:coverage  # V8 coverage report
+npm run deploy         # build + push to GitHub Pages
+```
+
+---
+
+## Environment Variables
+
+| Variable                   | Dev (`.env`)            | Production (`.env.production`) |
+| -------------------------- | ----------------------- | ------------------------------ |
+| `VITE_API_URL`             | `http://localhost:3000` | your backend URL               |
+| `VITE_USE_MOCK`            | `true`                  | `false`                        |
+| `VITE_EMAILJS_SERVICE_ID`  | —                       | EmailJS service ID             |
+| `VITE_EMAILJS_TEMPLATE_ID` | —                       | EmailJS template ID            |
+| `VITE_EMAILJS_PUBLIC_KEY`  | —                       | EmailJS public key             |
+
+Copy `.env.example` → `.env` to get started locally.
+
+---
+
+## Test Suite
+
+**33 test files · 305 tests · stable across 3/3 consecutive runs**
+
+```bash
+npm test
+```
+
+| Test file                                         | Tests | Coverage area                                                |
+| ------------------------------------------------- | :---: | ------------------------------------------------------------ |
+| `schemas/schemas.test.ts`                         |  56   | Valid ✅ · invalid ❌ · edge cases per Zod schema            |
+| `utils/validation.test.ts`                        |  25   | Validators return correct keys; strength levels              |
+| `i18n/LocaleContext.test.tsx`                     |   8   | Provider · setLocale · localStorage · throws outside         |
+| `i18n/translations.test.ts`                       |   9   | Key parity EN/UK · non-empty strings · interpolation         |
+| `hooks/useValidation.test.tsx`                    |   8   | Key→locale resolution · isValid · clearErrors                |
+| `hooks/useRegisterForm.test.tsx`                  |   6   | Real-time validation · isValid · authError                   |
+| `hooks/useEditProfileForm.test.tsx`               |   7   | Optional password · onSave patch payload                     |
+| `hooks/useLoginForm.test.tsx`                     |   5   | Email validation on change · submit · error code translation |
+| `hooks/useSearch.test.ts`                         |   6   | Text filter · date filter · clear                            |
+| `hooks/useSort.test.ts`                           |   5   | Asc/desc · toggle                                            |
+| `hooks/useArticleActions.test.ts`                 |   6   | Save · unsave · redirect when unauthenticated                |
+| `forms/shared/FormInput.test.tsx`                 |   5   | Label · value · error · aria-invalid                         |
+| `forms/shared/PasswordInput.test.tsx`             |   6   | Show/hide Eye icon · error · aria-pressed                    |
+| `forms/shared/PasswordStrengthHint.test.tsx`      |   7   | Weak/medium/strong bar · ✓/✗ rule checklist                  |
+| `forms/LoginForm/LoginForm.test.tsx`              |   8   | Heading · inputs · 2-row footer · real-time validation       |
+| `forms/RegisterForm/RegisterForm.test.tsx`        |   6   | Heading · disabled submit · strength hint                    |
+| `forms/EditProfileForm/EditProfileForm.test.tsx`  |   6   | Prefill · password error · onCancel                          |
+| `components/ErrorBoundary/ErrorBoundary.test.tsx` |   4   | Normal render · fallback · custom fallback · reset           |
+| `components/ui/Spinner.test.tsx`                  |   3   | Default label · custom label · size                          |
+| `components/NewsCard/NewsCard.test.tsx`           |   9   | Render · link · save button · CSS module class               |
+| `components/SortControl/SortControl.test.tsx`     |   6   | Labels · aria-pressed · toggle                               |
+| `components/Toast/Toast.test.tsx`                 |   6   | Message · onClose · no button without handler · variants     |
+| `pages/HomePage/CategoryFilter.test.tsx`          |   5   | Buttons · aria-pressed · onChange                            |
+| `pages/HomePage/homeHelpers.test.ts`              |   5   | filterByCategory locale sentinel logic                       |
+| `pages/ProfilePage/ProfileInfo.test.tsx`          |   5   | Nickname · @username · avatar · edit callback                |
+| `context/readLocalUser.test.ts`                   |   5   | Valid/invalid/missing localStorage user                      |
+| `security/csrf.test.ts`                           |   3   | Token format · stability · reset                             |
+| `security/inputGuard.test.ts`                     |   8   | XSS · SQLi · size limit · clean input                        |
+| `security/rateLimiter.test.ts`                    |  14   | 5-attempt block · 15-min timeout · rate_limit code format    |
+| `security/sessionGuard.test.ts`                   |   4   | Invalidate sessions > 24 h                                   |
+| `utils/formatDate.test.ts`                        |   5   | Date formatting · EN locale · UK locale                      |
+| `utils/hashPassword.test.ts`                      |   3   | SHA-256 determinism                                          |
+| `utils/sanitize.test.ts`                          |   5   | Email trim · nickname strip                                  |
+
+---
+
+## Architecture
+
+### Design principles
+
+| Principle                 | Where                                                                                                |
+| ------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **Single Responsibility** | Every file does one thing: `useSaveArticle` saves, `useSearch` filters, `CardImage` renders an image |
+| **Open/Closed**           | `NewsService` interface → swap mock ↔ real API without touching hooks                                |
+| **Liskov Substitution**   | `mockNewsService` and `apiNewsService` are interchangeable `NewsService` implementations             |
+| **Interface Segregation** | `AuthContextValue` exposes only what consumers need; storage reads only what `storage.ts` exposes    |
+| **Dependency Inversion**  | Hooks depend on service interfaces; mock injected via `config.USE_MOCK`                              |
+| **DRY**                   | Shared form primitives (`FormInput`, `PasswordInput`); single `useValidation` hook                   |
+| **Atomic design**         | `Badge`, `Spinner`, `VisuallyHidden` are pure presentational atoms with no logic                     |
+
+### React 19 features
+
+| Feature           | File                              | Why                                                          |
+| ----------------- | --------------------------------- | ------------------------------------------------------------ |
+| `useOptimistic`   | `useSaveArticle.ts`               | Instant save feedback — wrapped in `startTransition` per R19 |
+| `useTransition`   | `useSearch.ts`                    | Non-urgent filtering keeps input responsive                  |
+| `lazy + Suspense` | `App.tsx`                         | Per-route code splitting — initial bundle ≈ 60 kB            |
+| `StrictMode`      | `main.tsx`                        | Detects side-effects and deprecated patterns in development  |
+| `ErrorBoundary`   | `App.tsx`                         | Resets on every navigation via `resetKey`                    |
+| `AbortController` | `useNews.ts` · `useNewsDetail.ts` | Cancels stale requests on unmount, locale change             |
+
+### Code-split bundle
+
+```
+vendor-react    ~140 kB  (react, react-dom, react-router)  — cached for months
+vendor-utils     ~95 kB  (axios, zod)                      — cached for months
+vendor-ui       ~215 kB  (lucide-react)                    — cached for months
+vendor-crypto    ~48 kB  (bcrypt-ts)                       — cached for months
+index            ~28 kB  (app shell, Header, AuthProvider)  — changes on deploy
+HomePage          ~3 kB  (loaded only on /)
+SearchPage        ~2 kB  (loaded only on /search)
+… (one chunk per page)
+```
+
+First load downloads only `vendor-react` + `index` + the current page chunk.
+Subsequent navigations are instant (already cached).
+
+---
+
+## i18n — UA / EN
+
+```
+src/i18n/
+├── translations.ts      ← EN + UK dictionaries — single source of truth
+├── LocaleContext.tsx    ← LocaleProvider + useLocale() hook
+├── LocaleContext.test.tsx
+└── translations.test.ts
+```
+
+### Usage
+
+```tsx
+// Wrap once in App.tsx (already done)
+<LocaleProvider>…</LocaleProvider>
+
+// Use anywhere in the tree
+const { t, locale, setLocale } = useLocale();
+<h1>{t.home.heading}</h1>
+<button onClick={() => setLocale('en')}>EN</button>
+```
+
+### What is localised
+
+Every user-visible string in the application uses `t.*` — there are no hardcoded
+UI strings outside `translations.ts`. This includes:
+
+| Area                               | Translation keys                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------------------- |
+| Navigation links                   | `t.nav.*`                                                                         |
+| Home page headings + empty         | `t.home.*`                                                                        |
+| Search input, stats row            | `t.search.*`                                                                      |
+| News card save/remove buttons      | `t.card.*`                                                                        |
+| Article detail save / errors       | `t.detail.*` (incl. `notFound`, `loadError`)                                      |
+| Profile headings, toast messages   | `t.profile.*`                                                                     |
+| Edit profile form                  | `t.editProfile.*`                                                                 |
+| Login / register forms             | `t.login.*` · `t.register.*`                                                      |
+| Forgot / reset password            | `t.forgotPassword.*` · `t.resetPassword.*`                                        |
+| Password strength + rules          | `t.passwordStrength.*` · `t.validation.rules.*`                                   |
+| Shared form labels                 | `t.form.*`                                                                        |
+| Validation error messages          | `t.validation.*`                                                                  |
+| **Auth service error messages**    | `t.auth.*` — `user_not_found`, `wrong_password`, `email_taken`, `rate_limit` etc. |
+| Footer, layout                     | `t.layout.*`                                                                      |
+| **Article content and categories** | `MOCK_NEWS_BY_LOCALE[locale]` · `CATEGORIES_BY_LOCALE[locale]`                    |
+| **Header date**                    | `formatDate(today, locale)` — `en-US` / `uk-UA`                                   |
+| **Card & detail page dates**       | `formatDate(article.date, locale)`                                                |
+
+### Key guarantees
+
+- `uk: typeof en` — a missing translation key is a **compile-time error**.
+- Locale is persisted in `localStorage` (`bp_locale`).
+- Validation functions return keys (`'invalidEmail'`), not strings.
+  `useValidation` resolves them via `t.validation[key]` — errors always appear in the active language.
+- Switching UA ↔ EN **reloads the news list**, resets the active category to the
+  locale-specific "All" sentinel, and re-formats all dates — no page reload required.
+
+### Auth error codes
+
+`authService` and `rateLimiter` never return hardcoded strings. They return **error codes**:
+
+```
+'user_not_found'  'wrong_password'  'email_taken'  'account_not_found'
+'code_not_found'  'invalid_code'    'code_expired'  'invalid_input'
+'rate_limit:N'   ← structured code with dynamic minutes value
+```
+
+The utility `src/utils/resolveAuthError.ts` decodes a code → active-locale string:
+
+```ts
+import {resolveAuthError} from "../utils/resolveAuthError";
+
+// Inside a form hook that has useLocale():
+const {t} = useLocale();
+const msg = resolveAuthError(result.message, t);
+// result.message = 'wrong_password' → msg = 'Невірний пароль!' (uk) / 'Incorrect password!' (en)
+// result.message = 'rate_limit:5'  → msg = 'Забагато спроб. Спробуйте через 5 хв.' (uk)
+```
+
+Hooks that call `resolveAuthError`: `useLoginForm`, `useRegisterForm`,
+`useForgotPasswordForm`, `useResetPasswordForm`, `useUpdateUser`.
+
+The password strength widget shows a bar **and** an individual requirement list
+that turns green (✓) as each rule is met:
+
+```
+✓  Minimum 6 characters          (t.validation.rules.minLength)
+✗  Latin characters only          (t.validation.rules.latinOnly)
+✗  At least one uppercase letter  (t.validation.rules.upperCase)
+✗  At least one digit             (t.validation.rules.digit)
+```
+
+All four labels are translated and switch language instantly with the rest of the UI.
+
+---
+
+## Bilingual News Data
+
+All 16 mock articles and all 9 category labels exist in both languages.
+
+```
+src/mock/newsData.ts
+
+MOCK_NEWS_BY_LOCALE   = { uk: Article[16], en: Article[16] }
+CATEGORIES_BY_LOCALE  = { uk: ['Всі','Місто',…], en: ['All','City',…] }
+```
+
+### How it flows
+
+```
+useLocale()  →  locale ('uk' | 'en')
+     │
+     ▼
+useNews(locale)
+     │  passes locale to
+     ▼
+newsService.getAll(signal, locale)
+     │  mock: returns MOCK_NEWS_BY_LOCALE[locale]
+     │  real: sends Accept-Language: locale header
+     ▼
+ArticlesArraySchema.parse(data)   ← Zod validates every article
+     ▼
+articles[]  →  HomePage / SearchPage
+```
+
+`useNewsDetail` follows the same pattern — switching language on a detail page
+reloads the article in the active language.
+
+The active category is **automatically reset** to the locale-specific "All" sentinel
+(`'Всі'` / `'All'`) whenever the language is switched, preventing a stale Ukrainian
+category name filtering an English article list.
+
+### Pending save after redirect
+
+When an unauthenticated user clicks **Save** on a card or detail page:
+
+1. The article is serialised to `sessionStorage` under key `bp_pending_save`.
+2. The user is redirected to `/login`.
+3. After successful login **or** registration, `AuthProvider` calls
+   `popPendingArticle()` which reads, Zod-validates, and removes the stored
+   article, then saves it automatically.
+
+---
+
+## Zod Runtime Validation
+
+Every piece of external data is validated before it enters application state.
+
+```
+src/schemas/
+├── article.schema.ts   → ArticleSchema, ArticlesArraySchema, PendingArticleStorageSchema
+├── auth.schema.ts      → AuthResultSchema, ResetRecordSchema
+├── storage.schema.ts   → SavedArticlesStorageSchema
+├── user.schema.ts      → UserSchema, StoredUserSchema (z.strictObject)
+└── index.ts            → barrel export
+```
+
+All TypeScript types are derived via `z.infer` — the schema is the single source
+of truth. Changing a schema updates both runtime validation and static types.
+
+---
+
+## Security
+
+### Threat model and mitigations
+
+| Attack                             | Mitigation                                                                                                                                                                                                            | File                                                   |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| **XSS (reflected/stored)**         | CSP `script-src 'self' 'unsafe-inline' 'unsafe-eval'`. Zod strips unexpected fields. `sanitize.ts` strips HTML before storage.                                                                                        | `index.html`, `sanitize.ts`                            |
+| **XSS via `javascript:` URIs**     | `inputGuard.ts` rejects dangerous patterns before they reach the API.                                                                                                                                                 | `security/inputGuard.ts`                               |
+| **CSRF**                           | Double-Submit Cookie: `getCsrfToken()` stores a 32-byte random token in `sessionStorage`; Axios interceptor attaches `X-CSRF-Token` on every non-safe request.                                                        | `security/csrf.ts`, `services/api.ts`                  |
+| **Brute-force login**              | `rateLimiter.ts` blocks after 5 failed attempts for 15 min. Returns structured code `rate_limit:N`; form hooks translate it via `resolveAuthError`.                                                                   | `security/rateLimiter.ts`                              |
+| **Session hijacking**              | `sessionGuard.ts` invalidates sessions older than 24 hours.                                                                                                                                                           | `security/sessionGuard.ts`                             |
+| **Password leaking**               | `StoredUserSchema` uses `z.strictObject` — any object with extra keys is rejected before entering the `User` type.                                                                                                    | `schemas/user.schema.ts`                               |
+| **Plaintext passwords**            | Client-side SHA-256 pre-hash + bcrypt (10 rounds) via `bcrypt-ts`.                                                                                                                                                    | `utils/hashPassword.ts`, `services/authService.ts`     |
+| **Information leakage via errors** | `authService` returns error codes (`'user_not_found'`, `'wrong_password'` …), not hardcoded strings. UI translation via `resolveAuthError(code, t)` in form hooks.                                                    | `services/authService.ts`, `utils/resolveAuthError.ts` |
+| **Clickjacking**                   | `frame-ancestors 'none'` must be delivered as an **HTTP response header** (the CSP spec ignores it inside `<meta>`). Set `X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'none'` on the server. | `index.html` (comment)                                 |
+| **MIME-sniffing**                  | `X-Content-Type-Options: nosniff` meta header.                                                                                                                                                                        | `index.html`                                           |
+| **Information leakage**            | `logger.ts` suppresses all output in `import.meta.env.PROD`.                                                                                                                                                          | `utils/logger.ts`                                      |
+| **Large-payload DoS**              | `inputGuard.ts` rejects payloads > 4 096 bytes.                                                                                                                                                                       | `security/inputGuard.ts`                               |
+| **SQL injection (probe)**          | `inputGuard.ts` rejects `UNION SELECT`, `DROP TABLE`, `OR 1=1` patterns.                                                                                                                                              | `security/inputGuard.ts`                               |
+| **Stale CSRF tokens**              | `clearCsrfToken()` is called on logout, forcing a new token on next session.                                                                                                                                          | `security/csrf.ts`                                     |
+| **Referrer leakage**               | `Referrer-Policy: strict-origin-when-cross-origin`.                                                                                                                                                                   | `index.html`                                           |
+| **Permissions**                    | Camera, mic, geolocation, and payment APIs blocked via Permissions-Policy.                                                                                                                                            | `index.html`                                           |
+
+#### Note on `'unsafe-eval'`
+
+Zod 3 uses `Function()` internally for regex compilation, which is blocked by
+strict CSP. `'unsafe-eval'` is added to `script-src` as a temporary measure.
+Remove it once Zod ships a CSP-safe build or the project upgrades to Zod 4.
+
+> **Important:** Client-side mitigations are defence-in-depth only. The backend
+> **must** independently validate all inputs, enforce rate limits, and verify CSRF
+> headers — never rely solely on the frontend.
+
+---
+
+## Performance & Optimisation
+
+### Bundle
+
+- **Code splitting** via `React.lazy` — one chunk per page, downloaded on demand.
+- **Manual Rollup chunks** separate stable vendor libraries so they cache independently.
+- **Tree-shaking** — Lucide icons are imported individually, never as a barrel.
+
+### Images
+
+- `loading="lazy"` + `decoding="async"` on every `<CardImage>` — browser-native.
+- `aspect-ratio: 16/9` on the detail hero image prevents Cumulative Layout Shift.
+- First-card `priority` prop enables `loading="eager"` for the LCP element.
+- Broken images fall back to a placeholder automatically.
+
+### Rendering
+
+- `useTransition` in `useSearch` makes filtering non-blocking — input stays responsive.
+- `useOptimistic` in `useSaveArticle` removes perceived latency; the optimistic update
+  is wrapped in `startTransition` to satisfy React 19's transition requirement.
+- `useMemo` in `useSearch` avoids re-filtering on unrelated re-renders.
+- `Intl.DateTimeFormat` instances are **cached per locale** in `formatDate.ts` — a
+  new formatter is never created unnecessarily.
+
+### Network
+
+- `<link rel="preconnect">` for Google Fonts eliminates 2–3 extra RTTs.
+- `<link rel="dns-prefetch">` for API + image origins.
+- Axios timeout of 10 s prevents hanging connections.
+- `AbortController` cancels in-flight requests when the user navigates away or
+  switches language.
+
+### Accessibility / UX
+
+- `@media (prefers-reduced-motion)` disables all animations globally.
+- WCAG 2.5.5 touch targets: every interactive element has `min-height/width: 44px`.
+- `safe-area-inset-*` padding for notched devices (iPhone X+).
+- `-webkit-text-size-adjust: 100%` prevents iOS text resizing on orientation change.
+- `:focus-visible` ring with `outline-offset` for keyboard users.
+- Eye-icon toggle on password fields uses `aria-pressed` + `aria-label` from `t.form.showPassword / hidePassword`.
+- OTP code input on Reset Password page has `autoComplete="one-time-code"` for SMS autofill.
+
+---
+
+## CSS Architecture
+
+Two complementary layers, zero conflicts:
+
+### 1. Global utility classes — `src/styles/global.css`
+
+Imported once in `main.tsx`. Covers truly shared cross-component styles:
+
+- Design tokens (`--color-*`, `--font-*`, `--space-*`, `--shadow-*`)
+- CSS reset + base typography
+- `.btn` variants (primary, ghost, full, saved)
+- `.auth-page` / `.auth-card` shell (all 4 auth pages)
+- `.form-input__*` (labels, fields, errors — shared by all forms)
+- `.detail-article__*` (article detail layout)
+- `@keyframes` animations
+- `@media (prefers-reduced-motion)` global override
+- Responsive breakpoints at 480 px and 600 px
+
+### 2. CSS Modules — `*.module.css`
+
+Component-scoped, hashed at build time.
+**Never assert on hashed class names in tests** — use `aria-*`, `data-testid`,
+or text content instead.
+
+---
+
+## Project File Tree
 
 ```
 Bugle-Planet/
-├── public/
-│   ├── 404.html                                    # GitHub Pages SPA fallback page
-│   ├── favicon.svg                                 # Site favicon
-│   ├── spa-404-handler.js                          # Redirects 404s back to index.html for client-side routing
-│   └── spa-redirect.js                             # Injected into index.html; handles GitHub Pages routing
 │
+├── public/
+│   ├── 404.html                                     # GitHub Pages SPA fallback
+│   ├── favicon.svg
+│   └── spa-404-handler.ts                           # Compiled browser redirect script
 ├── src/
-│   │
-│   ├── components/                                 # Reusable, page-agnostic UI components
+│   ├── components/
 │   │   ├── ArticleLayout/
-│   │   │   ├── ArticleLayout.jsx                   # Full-width article page wrapper with back button
-│   │   │   └── ArticleLayout.module.css
+│   │   │   ├── ArticleLayout.module.css
+│   │   │   └── ArticleLayout.tsx                    # Back-button page wrapper
+│   │   │
 │   │   ├── AuthLayout/
-│   │   │   ├── AuthLayout.jsx                      # Centered card wrapper for all auth forms
-│   │   │   └── AuthLayout.module.css
+│   │   │   ├── AuthLayout.module.css
+│   │   │   └── AuthLayout.tsx                       # Centred card wrapper for all auth forms
+│   │   │
+│   │   ├── ErrorBoundary/
+│   │   │   ├── ErrorBoundary.test.tsx
+│   │   │   └── ErrorBoundary.tsx                    # Class-based; resetKey resets on navigation
+│   │   │
 │   │   ├── Header/
-│   │   │   ├── Header.jsx                          # Top-level site header (Logo + Navigation + TopBar)
-│   │   │   ├── Logo.jsx                            # Site logo with link to home
-│   │   │   ├── Navigation.jsx                      # Primary nav links
-│   │   │   ├── TopBar.jsx                          # Secondary top bar (user info)
-│   │   │   └── Header.module.css
+│   │   │   ├── Header.module.css
+│   │   │   ├── Header.tsx                           # Locale-aware date via formatDate(today, locale)
+│   │   │   ├── Logo.tsx
+│   │   │   ├── Navigation.tsx
+│   │   │   └── TopBar.tsx
+│   │   │
+│   │   ├── LanguageSwitcher/
+│   │   │   └── LanguageSwitcher.tsx                 # UA / EN toggle; persists to localStorage
+│   │   │
 │   │   ├── Layout/
-│   │   │   ├── Layout.jsx                          # Root page layout with header and footer
 │   │   │   └── Layout.module.css
+│   │   │
 │   │   ├── NewsCard/
-│   │   │   ├── NewsCard.jsx                        # Clickable article card (keyboard-accessible)
-│   │   │   ├── CardImage.jsx                       # Article image with broken-image fallback
-│   │   │   ├── CardMeta.jsx                        # Category badge + publication date
-│   │   │   ├── CardTitle.jsx                       # Article headline (variable font size)
-│   │   │   ├── CardActions.jsx                     # Save / unsave button with hover state
-│   │   │   └── NewsCard.module.css
+│   │   │   ├── CardActions.tsx                      # Save/unsave; hover → Trash2; all labels from t.card.*
+│   │   │   ├── CardImage.tsx                        # lazy + async + CLS-safe aspect-ratio
+│   │   │   ├── CardMeta.tsx                         # Badge + date; passes locale to formatDate
+│   │   │   ├── CardTitle.tsx
+│   │   │   ├── NewsCard.module.css
+│   │   │   ├── NewsCard.test.tsx
+│   │   │   └── NewsCard.tsx
+│   │   │
 │   │   ├── SortControl/
-│   │   │   ├── SortControl.jsx                     # Sort order dropdown (newest / oldest / A–Z)
-│   │   │   └── SortControl.module.css
-│   │   └── Toast/
-│   │       ├── Toast.jsx                           # Slide-in success notification
-│   │       └── Toast.module.css
+│   │   │   ├── SortControl.module.css
+│   │   │   ├── SortControl.test.tsx
+│   │   │   └── SortControl.tsx
+│   │   │
+│   │   ├── Toast/
+│   │   │   ├── Toast.module.css                     # .toast .toastError .icon .closeBtn
+│   │   │   ├── Toast.test.tsx
+│   │   │   └── Toast.tsx                            # variant='success'|'error'; i18n close label
+│   │   │
+│   │   └── ui/
+│   │       ├── Badge.tsx
+│   │       ├── Spinner.test.tsx
+│   │       ├── Spinner.tsx
+│   │       └── VisuallyHidden.tsx
 │   │
 │   ├── context/
-│   │   ├── AuthProvider.jsx                        # Top-level auth context provider (user, savedArticles, login/logout)
-│   │   ├── authContext.js                          # createContext + useAuth hook export
-│   │   ├── readLocalUser.js                        # Reads and validates user object from localStorage
-│   │   ├── readSavedArticles.js                    # Reads saved-article list for a given username
-│   │   └── popPendingArticle.js                    # Pops the pending-save article from sessionStorage after login
+│   │   ├── authContext.ts
+│   │   ├── AuthProvider.tsx                         # Calls popPendingArticle() after login/register
+│   │   ├── popPendingArticle.ts                     # Reads bp_pending_save; uses PENDING_SAVE_KEY constant
+│   │   ├── readLocalUser.test.ts
+│   │   ├── readLocalUser.ts
+│   │   └── readSavedArticles.ts
 │   │
 │   ├── forms/
-│   │   ├── shared/                                 # Shared form primitives used across all forms
-│   │   │   ├── FormInput.jsx                       # Labelled text input with inline error display
-│   │   │   ├── FormError.jsx                       # Full-width error banner (server / auth errors)
-│   │   │   ├── PasswordInput.jsx                   # Password field with show/hide toggle
-│   │   │   ├── PasswordStrengthHint.jsx            # Requirement checklist + strength bar
-│   │   │   ├── SubmitButton.jsx                    # Submit button with loading spinner
-│   │   │   ├── GoogleLoginButton.jsx               # Styled Google OAuth button (stub — ready to wire up)
-│   │   │   ├── forms.module.css                    # Shared form styles
-│   │   │   └── PasswordStrengthHint.module.css
-│   │   ├── LoginForm/
-│   │   │   ├── LoginForm.jsx                       # Login form (email + password + Google button)
-│   │   │   ├── LoginFormFooter.jsx                 # "Forgot password?" and "Create account" links
-│   │   │   ├── ResetSuccessBanner.jsx              # One-time success banner after password reset
-│   │   │   └── LoginForm.module.css
-│   │   ├── RegisterForm/
-│   │   │   └── RegisterForm.jsx                    # Registration form (email + nickname + password)
+│   │   ├── EditProfileForm/
+│   │   │   ├── EditProfileForm.module.css
+│   │   │   ├── EditProfileForm.test.tsx
+│   │   │   ├── EditProfileForm.tsx                  # Title from t.editProfile.title
+│   │   │   ├── NicknameField.tsx
+│   │   │   ├── ProfileFormActions.tsx
+│   │   │   └── ProfilePasswordField.tsx
+│   │   │
 │   │   ├── ForgotPasswordForm/
-│   │   │   ├── ForgotPasswordForm.jsx              # Step 1: enter email → request reset code
-│   │   │   ├── ResetCodeDisplay.jsx                # Step 2: confirmation screen (email sent / dev code)
-│   │   │   ├── CodeSentNotice.jsx                  # "Check your inbox" message
-│   │   │   ├── DevCodeNotice.jsx                   # Dev-mode: shows code on screen with copy hint
-│   │   │   └── ForgotPasswordForm.module.css
+│   │   │   ├── CodeSentNotice.tsx
+│   │   │   ├── DevCodeNotice.tsx
+│   │   │   ├── ForgotPasswordForm.module.css
+│   │   │   └── ResetCodeDisplay.tsx
+│   │   │
+│   │   ├── LoginForm/
+│   │   │   ├── LoginForm.module.css                 # .footer stacked column; .footerRow; .footerText
+│   │   │   ├── LoginForm.test.tsx
+│   │   │   ├── LoginForm.tsx
+│   │   │   ├── LoginFormFooter.tsx                  # 2 separate rows: forgotPasswordText + noAccountText/Link
+│   │   │   └── ResetSuccessBanner.tsx               # Text from t.login.resetSuccessMsg
+│   │   │
+│   │   ├── RegisterForm/
+│   │   │   ├── RegisterForm.test.tsx
+│   │   │   └── RegisterForm.tsx                     # Footer: hasAccountText (p) + hasAccountLink (a)
+│   │   │
 │   │   ├── ResetPasswordForm/
-│   │   │   ├── ResetPasswordForm.jsx               # Step 3: enter code + new password + confirm
-│   │   │   ├── ResetEmailField.jsx                 # Read-only email display field
-│   │   │   ├── ResetCodeField.jsx                  # 6-digit code input
 │   │   │   └── ResetPasswordForm.module.css
-│   │   └── EditProfileForm/
-│   │       ├── EditProfileForm.jsx                 # Inline profile editor (nickname + optional password)
-│   │       ├── NicknameField.jsx                   # Nickname text input
-│   │       ├── ProfilePasswordField.jsx            # Password input with strength hint
-│   │       ├── ProfileFormActions.jsx              # Save / Cancel buttons
-│   │       └── EditProfileForm.module.css
+│   │   │
+│   │   └── shared/
+│   │       ├── FormError.tsx
+│   │       ├── FormInput.test.tsx
+│   │       ├── FormInput.tsx
+│   │       ├── forms.module.css                     # .eyeBtn flush right; .passwordWrap .input padding-right: 42px
+│   │       ├── GoogleLoginButton.tsx
+│   │       ├── PasswordInput.test.tsx
+│   │       ├── PasswordInput.tsx                    # Eye/EyeOff lucide icons; flush-right via eyeBtn
+│   │       ├── PasswordStrengthHint.module.css
+│   │       ├── PasswordStrengthHint.test.tsx
+│   │       ├── PasswordStrengthHint.tsx             # Bar + ✓/✗ rule checklist; all labels from t.validation.rules.
+│   │       └── SubmitButton.tsx
 │   │
-│   ├── hooks/                                      # Custom React hooks — one concern each
-│   │   ├── useAuth.js                              # Reads the AuthContext (throws if used outside provider)
-│   │   ├── useAuthSync.js                          # Persists user state; syncs saved articles (localStorage in mock, API on mount in real)
-│   │   ├── useLogin.js                             # Login action (mock or API) returned as a callback
-│   │   ├── useRegister.js                          # Register action (mock or API) returned as a callback
-│   │   ├── useUpdateUser.js                        # Profile update action (mock or API)
-│   │   ├── useLoginForm.js                         # LoginForm state: email, password, submit handler
-│   │   ├── useRegisterForm.js                      # RegisterForm state: field values, validation, submit
-│   │   ├── useEditProfileForm.js                   # EditProfileForm state: changes, validation, submit
-│   │   ├── useForgotPasswordForm.js                # ForgotPasswordForm state: email, submit, result
-│   │   ├── useResetPasswordForm.js                 # ResetPasswordForm state: code, new password, submit
-│   │   ├── useValidation.js                        # Generic per-field validation hook
-│   │   ├── useNews.js                              # Fetches and caches the full article list
-│   │   ├── useNewsDetail.js                        # Fetches a single article by ID
-│   │   ├── useSearch.js                            # Client-side full-text + date filter over articles
-│   │   ├── useSort.js                              # Sorts an array by newest / oldest / title
-│   │   ├── useSaveArticle.js                       # Save / unsave a single article; redirects if unauthenticated
-│   │   ├── useArticleActions.js                    # saveArticle / unsaveArticle — updates state + calls API in real mode
-│   │   └── useProfilePage.js                       # ProfilePage orchestration: logout, editing toggle, save
+│   ├── hooks/
+│   │   ├── useArticleActions.test.ts
+│   │   ├── useArticleActions.ts
+│   │   ├── useAuth.ts
+│   │   ├── useAuthSync.ts
+│   │   ├── useEditProfileForm.test.tsx
+│   │   ├── useEditProfileForm.ts
+│   │   ├── useForgotPasswordForm.ts
+│   │   ├── useLogin.ts
+│   │   ├── useLoginForm.test.tsx
+│   │   ├── useLoginForm.ts                          # resolveAuthError translates server error codes
+│   │   ├── useNews.ts                               # Re-fetches on locale change; passes locale to service
+│   │   ├── useNewsDetail.ts                         # Passes locale to getById; redirects unauth saves; t.detail.*
+│   │   ├── useProfilePage.ts
+│   │   ├── useRegister.ts
+│   │   ├── useRegisterForm.test.tsx
+│   │   ├── useRegisterForm.ts                       # resolveAuthError translates server error codes
+│   │   ├── useResetPasswordForm.ts                  # resolveAuthError translates server error codes
+│   │   ├── useSaveArticle.ts                        # PENDING_SAVE_KEY constant; startTransition wrapper
+│   │   ├── useSearch.test.ts
+│   │   ├── useSearch.ts
+│   │   ├── useSort.test.ts
+│   │   ├── useSort.ts
+│   │   ├── useUpdateUser.ts                         # resolveAuthError translates server error codes
+│   │   ├── useValidation.test.tsx
+│   │   └── useValidation.ts                         # initialErrors memoised; isValid exported; stable deps
+│   │
+│   ├── i18n/
+│   │   ├── LocaleContext.test.tsx
+│   │   ├── LocaleContext.tsx
+│   │   ├── translations.test.ts
+│   │   └── translations.ts                          # Full EN + UK with validation.rules.* and all UI strings
 │   │
 │   ├── mock/
-│   │   ├── newsData.js                             # Static array of 20 sample articles
-│   │   └── mockDelay.js                            # Returns a Promise that resolves after VITE_MOCK_DELAY_MS
+│   │   ├── mockDelay.ts
+│   │   └── newsData.ts                              # MOCK_NEWS_BY_LOCALE · CATEGORIES_BY_LOCALE · 16 articles × 2 langs
 │   │
 │   ├── pages/
+│   │   ├── ForgotPasswordPage/
+│   │   │   └── ForgotPasswordPage.tsx
+│   │   │
 │   │   ├── HomePage/
-│   │   │   ├── HomePage.jsx                        # News grid page (fetch → sort → filter → render)
-│   │   │   ├── HomeGrid.jsx                        # Responsive CSS grid of NewsCard components
-│   │   │   ├── CategoryFilter.jsx                  # Horizontal category pill filter
-│   │   │   ├── HomeLoading.jsx                     # Skeleton / spinner shown while fetching
-│   │   │   ├── HomeError.jsx                       # Error state display
-│   │   │   ├── homeHelpers.js                      # Pure helper: extract unique categories from articles
-│   │   │   └── HomePage.module.css
+│   │   │   ├── CategoryFilter.module.css
+│   │   │   ├── CategoryFilter.test.tsx
+│   │   │   ├── CategoryFilter.tsx
+│   │   │   ├── HomeError.tsx
+│   │   │   ├── HomeGrid.tsx
+│   │   │   ├── homeHelpers.test.ts
+│   │   │   ├── homeHelpers.ts                       # filterByCategory(articles, category, locale)
+│   │   │   ├── HomeLoading.tsx                      # Uses t.home.loading
+│   │   │   ├── HomePage.module.css
+│   │   │   ├── HomePage.tsx                         # Resets activeCategory on locale switch
+│   │   │   ├── HomeResultCount.tsx                  # Extracted sub-component: "Found X articles"
+│   │   │   └── HomeSearchBar.tsx                    # Extracted sub-component: search + date + clear
+│   │   │
 │   │   ├── NewsDetailPage/
-│   │   │   ├── NewsDetailPage.jsx                  # Full article page (hero image, body, save button)
-│   │   │   ├── ArticleMeta.jsx                     # Category + date metadata row
-│   │   │   ├── SaveButton.jsx                      # Save / unsave button on the detail page
-│   │   │   ├── DetailLoading.jsx                   # Loading state for article fetch
-│   │   │   ├── DetailNotFound.jsx                  # "Article not found" fallback
-│   │   │   └── NewsDetailPage.module.css
-│   │   ├── SearchPage/
-│   │   │   ├── SearchPage.jsx                      # Search page shell (filters + results)
-│   │   │   ├── SearchFilters.jsx                   # Text query input + date picker + clear button
-│   │   │   ├── SearchResults.jsx                   # Results count + grid / empty state
-│   │   │   └── SearchPage.module.css
-│   │   └── ProfilePage/
-│   │       ├── ProfilePage.jsx                     # Profile page (info card + saved articles + logout)
-│   │       ├── ProfileInfo.jsx                     # Avatar initials + nickname + edit button
-│   │       ├── SavedArticlesList.jsx               # List of saved article items
-│   │       ├── SavedArticleItem.jsx                # Single saved article row with remove button
-│   │       ├── SavedArticlesEmpty.jsx              # Empty state when no articles are saved
-│   │       ├── ProfilePage.module.css
-│   │       ├── ProfileInfo.module.css
-│   │       └── SavedArticlesList.module.css
+│   │   │   ├── ArticleMeta.tsx                      # Passes locale to formatDate
+│   │   │   ├── DetailLoading.tsx
+│   │   │   ├── DetailNotFound.tsx
+│   │   │   ├── NewsDetailPage.module.css
+│   │   │   ├── NewsDetailPage.tsx
+│   │   │   └── SaveButton.tsx                       # t.detail.save / t.detail.saved; Bookmark icons
+│   │   │
+│   │   ├── ProfilePage/
+│   │   │   ├── ProfileInfo.module.css
+│   │   │   ├── ProfileInfo.test.tsx
+│   │   │   ├── ProfileInfo.tsx
+│   │   │   ├── ProfilePage.module.css
+│   │   │   ├── ProfilePage.tsx                      # Toast messages from t.profile.toast[savedType]
+│   │   │   ├── SavedArticleItem.tsx                 # aria-labels from t.profile.removeArticle / readArticle
+│   │   │   ├── SavedArticlesEmpty.tsx               # t.profile.savedEmpty
+│   │   │   ├── SavedArticlesList.module.css
+│   │   │   └── SavedArticlesList.tsx
+│   │   │
+│   │   ├── ResetPasswordPage/
+│   │   │   └── ResetPasswordPage.tsx                # autoComplete="one-time-code" on OTP field
+│   │   │
+│   │   └── SearchPage/
+│   │       ├── SearchFilters.tsx                    # All labels from t.search.*
+│   │       ├── SearchPage.module.css                # .stats display:flex; .statsIcon
+│   │       ├── SearchPage.tsx
+│   │       └── SearchResults.tsx                    # 🔍 emoji icon inline with foundOf(count, total)
 │   │
 │   ├── router/
-│   │   └── PrivateRoute.jsx                        # HOC that redirects unauthenticated users to /login
+│   │   └── PrivateRoute.tsx
+│   │
+│   ├── schemas/
+│   │   ├── article.schema.ts
+│   │   ├── auth.schema.ts
+│   │   ├── index.ts
+│   │   ├── schemas.test.ts
+│   │   ├── storage.schema.ts
+│   │   └── user.schema.ts
 │   │
 │   ├── security/
-│   │   ├── sessionGuard.js                         # HMAC-signed session key; cross-tab sync via BroadcastChannel
-│   │   └── rateLimiter.js                          # In-memory attempt counter with timed block (5 attempts / 15 min)
+│   │   ├── csrf.test.ts
+│   │   ├── csrf.ts
+│   │   ├── inputGuard.test.ts
+│   │   ├── inputGuard.ts
+│   │   ├── rateLimiter.test.ts
+│   │   ├── rateLimiter.ts
+│   │   ├── sessionGuard.test.ts
+│   │   └── sessionGuard.ts
 │   │
 │   ├── services/
-│   │   ├── api.js                                  # Axios instance with Authorization header interceptor
-│   │   ├── authService.js                          # login / register / forgotPassword / resetPassword (mock + real)
-│   │   ├── emailService.js                         # Sends reset codes via EmailJS (dev fallback: returns raw code)
-│   │   ├── newsService.js                          # getArticles / getArticleById (mock + real)
-│   │   ├── savedArticlesService.js                 # getAll / save / remove for saved articles (mock + real)
-│   │   └── storage.js                              # localStorage helpers: getUser / setUser / getToken / clearAuth
+│   │   ├── api.ts
+│   │   ├── authService.ts
+│   │   ├── emailService.ts
+│   │   ├── newsService.ts                           # getAll/getById(signal, locale); Accept-Language header
+│   │   ├── savedArticlesService.ts
+│   │   └── storage.ts
 │   │
 │   ├── styles/
-│   │   └── global.css                              # CSS custom properties (colors, fonts, spacing) + reset
+│   │   └── global.css
+│   │
+│   ├── tests/
+│   │   ├── setup.ts
+│   │   └── testHelpers.tsx
 │   │
 │   ├── utils/
-│   │   ├── validation.js                           # Pure validators: validateEmail, validatePassword, etc.
-│   │   ├── sanitize.js                             # XSS-safe HTML sanitiser for article body content
-│   │   ├── hashPassword.js                         # Client-side SHA-256 pre-hash before sending to server
-│   │   └── formatDate.js                           # Locale-aware date formatter
+│   │   ├── formatDate.test.ts
+│   │   ├── formatDate.ts                            # Locale-aware; formatter cache per locale (en-US / uk-UA)
+│   │   ├── hashPassword.test.ts
+│   │   ├── hashPassword.ts
+│   │   ├── logger.ts
+│   │   ├── resolveAuthError.ts                      # Decodes authService/rateLimiter error codes → locale string
+│   │   ├── sanitize.test.ts
+│   │   ├── sanitize.ts
+│   │   ├── validation.test.ts
+│   │   └── validation.ts
 │   │
-│   ├── config.js                                   # Centralised env-variable accessors (VITE_USE_MOCK, etc.)
-│   ├── App.jsx                                     # Root route table
-│   └── main.jsx                                    # React entry point (AuthProvider wrapper)
+│   ├── App.tsx                                      # Root: providers → routes; all pages lazy-loaded
+│   ├── config.ts
+│   ├── env.d.ts                                     # Vite env variable TypeScript declarations
+│   └── main.tsx                                     # Entry point — CSRF init, StrictMode, createRoot
 │
-├── .env                                            # Local secrets — never committed
-├── .env.example                                    # Template with all required variable names
+├── .env
+├── .env.example
 ├── .gitignore
-├── eslint.config.js                                # ESLint flat config (react-hooks + react-refresh)
-├── index.html                                      # Vite entry HTML with CSP meta tags
-├── LICENSE                                         # MIT License
+├── eslint.config.js
+├── index.html                                       # CSP: unsafe-eval for Zod; frame-ancestors in comment
+├── LICENSE
 ├── package-lock.json
 ├── package.json
 ├── README.md
-└── vite.config.js                                  # Vite + Vitest configuration
+├── tsconfig.json
+└── vite.config.ts
 ```
 
 ---
 
-## Getting started
+## Deployment — GitHub Pages
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/vscrm/Bugle-Planet.git
-cd Bugle-Planet
+# 1. Set the repo name in vite.config.ts
+base: '/your-repo-name/',
 
-# 2. Install dependencies
-npm install
+# 2. Set the production backend URL in .env.production
+VITE_API_URL=https://your-backend.onrender.com
 
-# 3. Copy the example env file
-cp .env.example .env
-
-# 4. Start the dev server (mock mode by default)
-npm run dev
+# 3. Deploy
+npm run deploy    # = npm run build && gh-pages -d dist
 ```
 
-The app opens at `http://localhost:5173/Bugle-Planet/`.
-
-**Register a test account** at `/register`, then log in. All data is stored in
-`localStorage` — nothing is sent to any server in mock mode.
-
----
-
-## Environment variables
-
-Copy `.env.example` to `.env` and fill in the values you need.
-
-| Variable                   | Default                     | Description                                    |
-| -------------------------- | --------------------------- | ---------------------------------------------- |
-| `VITE_USE_MOCK`            | `true`                      | `true` = localStorage mock, `false` = real API |
-| `VITE_API_URL`             | `http://localhost:3001/api` | Base URL for the REST backend                  |
-| `VITE_MOCK_DELAY_MS`       | `600`                       | Artificial delay for mock requests (ms)        |
-| `VITE_EMAILJS_SERVICE_ID`  | _(empty)_                   | EmailJS service ID                             |
-| `VITE_EMAILJS_TEMPLATE_ID` | _(empty)_                   | EmailJS template ID                            |
-| `VITE_EMAILJS_PUBLIC_KEY`  | _(empty)_                   | EmailJS public key                             |
-
-When the three `VITE_EMAILJS_*` variables are empty the app runs in **developer mode**: the six-digit code is displayed on-screen instead of being emailed.
-
----
-
-## Password-reset emails (EmailJS)
-
-### Setup (free — 200 emails / month)
-
-1. Sign up at <https://www.emailjs.com>.
-2. **Email Services** → Add a service (Gmail, Outlook, SMTP, …) → copy the **Service ID**.
-3. **Email Templates** → Create a template. Set **To Email** to `{{to_email}}` and include `{{reset_code}}` in the body. Copy the **Template ID**.
-4. **Account → API Keys** → copy your **Public Key**.
-5. Paste the three values into `.env`:
-   ```env
-   VITE_EMAILJS_SERVICE_ID=service_xxxxxxx
-   VITE_EMAILJS_TEMPLATE_ID=template_xxxxxxx
-   VITE_EMAILJS_PUBLIC_KEY=xxxxxxxxxxxxxxxxxxxx
-   ```
-6. Restart the dev server.
-
----
-
-## Switching to a real backend
-
-1. Set `VITE_USE_MOCK=false` in `.env`.
-2. Set `VITE_API_URL` to your backend's base URL.
-3. Implement the following endpoints:
-
-### Auth endpoints
-
-| Method | Path                    | Body                                 | Response                               |
-| ------ | ----------------------- | ------------------------------------ | -------------------------------------- |
-| `POST` | `/auth/login`           | `{ email, passwordHash }`            | `{ success, user?, token?, message? }` |
-| `POST` | `/auth/register`        | `{ email, passwordHash, nickname? }` | `{ success, user?, token?, message? }` |
-| `PUT`  | `/users/:username`      | `{ nickname?, passwordHash? }`       | `{ success, user?, message? }`         |
-| `POST` | `/auth/forgot-password` | `{ email }`                          | `{ success, message? }`                |
-| `POST` | `/auth/reset-password`  | `{ email, code, passwordHash }`      | `{ success, message? }`                |
-
-`user` shape: `{ username: string, nickname: string }`.
-
-`token` must be a JWT. The frontend stores it in `localStorage` and attaches it automatically as `Authorization: Bearer <token>` on every subsequent request (`src/services/api.js`). On explicit logout or a `401` response the token is cleared.
-
-`passwordHash` is a client-side **SHA-256 hex digest** of the raw password (see `src/utils/hashPassword.js`). Hash it again server-side (e.g. bcrypt) before storing — never store the raw SHA-256 digest.
-
-### News endpoints
-
-| Method | Path        | Body | Response    |
-| ------ | ----------- | ---- | ----------- |
-| `GET`  | `/news`     | —    | `Article[]` |
-| `GET`  | `/news/:id` | —    | `Article`   |
-
-### Saved-articles endpoints
-
-| Method   | Path                                | Body      | Response    |
-| -------- | ----------------------------------- | --------- | ----------- |
-| `GET`    | `/users/:username/saved`            | —         | `Article[]` |
-| `POST`   | `/users/:username/saved`            | `Article` | `201`       |
-| `DELETE` | `/users/:username/saved/:articleId` | —         | `204`       |
-
-All three endpoints require the `Authorization: Bearer <token>` header.
-
-`Article` shape must match the objects in `src/mock/newsData.js` (`id`, `title`, `description`, `imageUrl`, `category`, `publishedAt`, `content`).
-
-### Error response format
-
-For any failure, return `{ success: false, message: "..." }` with an appropriate HTTP status (400, 401, 404, 409, etc.). The frontend reads `message` and displays it in the form error banner.
-
----
-
-## Google OAuth (ready for backend)
-
-`src/forms/shared/GoogleLoginButton.jsx` is fully styled and waiting. To activate:
-
-1. Set up Google OAuth in your backend (Passport.js, next-auth, etc.).
-2. In `LoginForm.jsx` replace `onLogin={null}` with your handler:
-   ```jsx
-   <GoogleLoginButton
-   	onLogin={() => (window.location.href = "/api/auth/google")}
-   />
-   ```
-   or with `@react-oauth/google`:
-   ```jsx
-   import {useGoogleLogin} from "@react-oauth/google";
-   const googleLogin = useGoogleLogin({
-   	onSuccess: (token) => sendTokenToBackend(token),
-   });
-   <GoogleLoginButton onLogin={googleLogin} />;
-   ```
-
-The button is disabled when `onLogin` is `null` — no styles break.
-
----
-
-## Running tests
-
-```bash
-# Run all tests once
-npm test
-
-# Watch mode (re-runs on file changes)
-npm run test:watch
-```
-
-Tests live **next to the files they test** (e.g. `validation.test.js` beside `validation.js`).
-
-### What is tested
-
-| Area                   | File                                             |
-| ---------------------- | ------------------------------------------------ |
-| Validation rules       | `utils/validation.test.js`                       |
-| XSS sanitisation       | `utils/sanitize.test.js`                         |
-| Password hashing       | `utils/hashPassword.test.js`                     |
-| Date formatting        | `utils/formatDate.test.js`                       |
-| Rate limiter           | `security/rateLimiter.test.js`                   |
-| Session guard          | `security/sessionGuard.test.js`                  |
-| Auth context helpers   | `context/readLocalUser.test.js`                  |
-| Article actions hook   | `hooks/useArticleActions.test.js`                |
-| Validation hook        | `hooks/useValidation.test.js`                    |
-| Login form hook        | `hooks/useLoginForm.test.js`                     |
-| Register form hook     | `hooks/useRegisterForm.test.js`                  |
-| Edit profile hook      | `hooks/useEditProfileForm.test.js`               |
-| Search hook            | `hooks/useSearch.test.js`                        |
-| Sort hook              | `hooks/useSort.test.js`                          |
-| Password strength hint | `forms/shared/PasswordStrengthHint.test.jsx`     |
-| Password input         | `forms/shared/PasswordInput.test.jsx`            |
-| Form input             | `forms/shared/FormInput.test.jsx`                |
-| Login form             | `forms/LoginForm/LoginForm.test.jsx`             |
-| Register form          | `forms/RegisterForm/RegisterForm.test.jsx`       |
-| Edit profile form      | `forms/EditProfileForm/EditProfileForm.test.jsx` |
-| Toast component        | `components/Toast/Toast.test.jsx`                |
-| News card              | `components/NewsCard/NewsCard.test.jsx`          |
-| Sort control           | `components/SortControl/SortControl.test.jsx`    |
-| Category filter        | `pages/HomePage/CategoryFilter.test.jsx`         |
-| Profile info           | `pages/ProfilePage/ProfileInfo.test.jsx`         |
-
----
-
-## Available scripts
-
-| Script               | Description                      |
-| -------------------- | -------------------------------- |
-| `npm run dev`        | Start Vite dev server            |
-| `npm run build`      | Production build                 |
-| `npm run preview`    | Preview production build locally |
-| `npm test`           | Run all tests once               |
-| `npm run test:watch` | Vitest in watch mode             |
-| `npm run lint`       | ESLint                           |
-| `npm run deploy`     | Build + publish to GitHub Pages  |
+The SPA fallback uses `public/404.html` to encode the original URL as a query
+string. The inline `<script>` in `index.html` decodes it via `history.replaceState`
+before React Router mounts — no reload, no flash of the home page.
 
 ---
 
 ## License
 
-This project is released under the [MIT License](./LICENSE).
+[![MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)

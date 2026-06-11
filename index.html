@@ -2,34 +2,95 @@
 <html lang="uk">
 	<head>
 		<meta charset="UTF-8" />
-		<link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<meta
+			name="description"
+			content="Bugle Planet — новини Калуша та Івано-Франківщини" />
+		<meta name="theme-color" content="#2c2416" />
+
+		<!-- ─── Security headers ──────────────────────────────────── -->
+		<!--
+      CSP notes:
+        • 'unsafe-eval' is required by Zod (zod.js uses Function() internally
+          for regex compilation).  Remove once Zod ships a CSP-safe build.
+        • 'unsafe-inline' is required by the inline SPA redirect script.
+        • frame-ancestors must be delivered as an HTTP response header —
+          it is silently ignored inside a <meta> tag per the CSP spec.
+          Set  X-Frame-Options: DENY  and
+          Content-Security-Policy: frame-ancestors 'none'  on the server.
+    -->
 		<meta
 			http-equiv="Content-Security-Policy"
 			content="
-				default-src 'self';
-				script-src 'self' https://*.github.io;
-				style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-				style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;
-				font-src 'self' https://fonts.gstatic.com;
-				img-src 'self' data: https://vscrm.github.io https://*.github.io https://images.unsplash.com https://*.unsplash.com;
-				connect-src 'self' http://localhost:3001 ws://localhost:5173 ws://localhost:4173 https://api.emailjs.com https://*.github.io;
-				object-src 'none';
-				base-uri 'self';
-				form-action 'self';
-			" />
+        default-src 'self';
+        script-src  'self' 'unsafe-inline' 'unsafe-eval';
+        style-src   'self' 'unsafe-inline' https://fonts.googleapis.com;
+        font-src    'self' https://fonts.gstatic.com;
+        img-src     'self' data: blob: https:;
+        connect-src 'self'
+                    http://localhost:3000
+                    https://react-shop-backend-jg62.onrender.com
+                    https://api.emailjs.com
+                    ws://localhost:5173
+                    ws://localhost:4173;
+        object-src  'none';
+        base-uri    'self';
+        form-action 'self';
+      " />
 		<meta http-equiv="X-Content-Type-Options" content="nosniff" />
 		<meta
 			http-equiv="Referrer-Policy"
 			content="strict-origin-when-cross-origin" />
 		<meta
 			http-equiv="Permissions-Policy"
-			content="camera=(), microphone=(), geolocation=()" />
+			content="camera=(), microphone=(), geolocation=(), payment=()" />
+
+		<!-- ─── Favicon ───────────────────────────────────────────── -->
+		<link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+
+		<!-- ─── Font preconnect (eliminates 2–3 RTT on first load) ── -->
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+		<!-- ─── DNS-prefetch for API origin ──────────────────────── -->
+		<link
+			rel="dns-prefetch"
+			href="https://react-shop-backend-jg62.onrender.com" />
+		<link rel="dns-prefetch" href="https://images.unsplash.com" />
+
 		<title>Bugle Planet</title>
-		<script type="text/javascript" src="./spa-redirect.js"></script>
+
+		<!-- ─── SPA route restorer for GitHub Pages ──────────────── -->
+		<!--
+      GitHub Pages serves 404.html for unknown paths.  That page encodes the
+      original URL as a query string and redirects here.  This inline script
+      decodes it via history.replaceState before React Router mounts — zero
+      page reload, zero flash.  Kept inline (not a separate file) to avoid a
+      Vite bundling warning about non-module scripts.
+    -->
+		<script>
+			(function (l) {
+				if (l.search[1] === "/") {
+					var d = l.search
+						.slice(1)
+						.split("&")
+						.map(function (s) {
+							return s.replace(/~and~/g, "&");
+						})
+						.join("?");
+					window.history.replaceState(
+						null,
+						"",
+						l.pathname.slice(0, l.pathname.length - 1) + d + l.hash,
+					);
+				}
+			})(window.location);
+		</script>
 	</head>
 	<body>
 		<div id="root"></div>
-		<script type="module" src="/src/main.jsx"></script>
+		<script type="module" src="/src/main.tsx"></script>
 	</body>
 </html>

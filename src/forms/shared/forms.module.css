@@ -43,23 +43,32 @@
 	position: relative;
 }
 
+/* Input inside a password wrapper needs extra right padding so text
+   never slides behind the toggle button. */
+.passwordWrap .input {
+	padding-right: 42px;
+}
+
 .eyeBtn {
 	position: absolute;
-	right: 10px;
-	top: 50%;
-	transform: translateY(-50%);
+	right: 0;
+	top: 0;
+	bottom: 0;
+	width: 40px;
 	background: none;
 	border: none;
+	border-left: 1px solid var(--color-border-light, #ddd);
 	cursor: pointer;
 	color: var(--color-gray);
-	padding: 0;
 	display: flex;
 	align-items: center;
+	justify-content: center;
 	transition: var(--transition-fast);
 }
 
 .eyeBtn:hover {
 	color: var(--color-dark);
+	background: var(--color-bg);
 }
 
 .submitBtn {
